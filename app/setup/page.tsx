@@ -102,7 +102,7 @@ export default function SetupPage() {
 
   return (
     <AppFrame>
-      <header className="px-6 pt-8 pb-1 text-center">
+      <header className="shrink-0 px-6 pt-8 pb-1 text-center">
         <h1 className="text-[1.4rem] font-bold tracking-tight text-ink">설정</h1>
         <p className="mt-1.5 text-[0.83rem] leading-relaxed text-ink-muted">
           처음 한 번만 정해두면 됩니다
@@ -112,7 +112,7 @@ export default function SetupPage() {
       {!hydrated ? (
         <SetupSkeleton />
       ) : (
-        <div className="flex-1 space-y-7 px-6 pt-6 pb-40">
+        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 pt-6 pb-10">
           {/* 드롭다운이 아래 두 섹션 위로 펼쳐져야 한다. */}
           <Field label="주사 명칭" step={1} layer={20}>
             <InjectionSelect
@@ -150,7 +150,7 @@ export default function SetupPage() {
       )}
 
       {/* 저장 버튼은 항상 손가락이 닿는 곳에 둔다. */}
-      <div className="sticky bottom-0 z-20 bg-gradient-to-t from-canvas via-canvas to-transparent px-6 pt-8 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <div className="z-20 shrink-0 bg-gradient-to-t from-canvas via-canvas to-transparent px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {error && (
           <p
             role="alert"

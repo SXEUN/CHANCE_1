@@ -27,6 +27,11 @@
 
   --danger: #a3382f;
 
+  /* 인체도. 채도를 낮춘 살구색이라 화면의 따뜻한 종이색과 충돌하지 않는다. */
+  --skin: #f2ddc9;
+  --skin-shade: #e8cdb3;
+  --skin-line: #dcbb9c;
+
   --radius-sm: 0.625rem;
   --radius: 0.875rem;
   --radius-lg: 1.25rem;
@@ -213,6 +218,24 @@ button,
 .animate-drop {
   animation: drop 0.22s var(--ease-out) both;
   transform-origin: top center;
+}
+
+/* 추천 부위를 알리는 숨쉬듯 퍼지는 링. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.15;
+    transform: scale(1.35);
+  }
+}
+.animate-breathe {
+  animation: breathe 2.4s var(--ease) infinite;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 /*

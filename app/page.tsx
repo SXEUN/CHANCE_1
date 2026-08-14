@@ -1,65 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { AppFrame } from "@/components/AppFrame";
-import { daysBetween, formatKorean } from "@/lib/date";
+import { GearIcon } from "@/components/icons";
+import { addMonths, fromKey, startOfMonth, toKey, today } from "@/lib/date";
+import { fetchLogs } from "@/lib/logs/remote";
+import { SITE_SHORT, type InjectionLog } from "@/lib/logs/types";
 import { ensureSession, fetchSettings } from "@/lib/settings/remote";
 import { readLocalSettings, writeLocalSettings } from "@/lib/settings/storage";
-import { formatTime, type Settings } from "@/lib/settings/types";
+import type { Settings } from "@/lib/settings/types";
 
-/**
- * 진입 지점이자 관문.
- *
- * 설정이 없으면 설정 화면으로 보내고, 있으면 홈을 그린다.
- * 판단을 로컬 사본으로 먼저 하기 때문에 재방문 시 설정 화면이 번쩍이지 않는다.
- */
-export default function HomePage() {
+/** 오늘을 가운데 두고 앞뒤로 몇 달치를 그릴지. */
+const MONTHS_BACK = 2;
+const MONTHS_FORWARD = 2;
+
+const WEEKDAYS = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
+
+export default function DatePickerPage() {
   const router = useRouter();
+
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [logs, setLogs] = useState<InjectionLog[]>([]);
   const [checking, setChecking] = useState(true);
+
+  const todayKey = useMemo(() => toKey(today()), []);
+  const [selected, setSelected] = useState(todayKey);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const todayRef = useRef<HTMLButtonElement>(null);
+
+  // 오늘을 기준으로 앞뒤 몇 달치 날짜를 한 줄로 펼친다.
+  const days = useMemo(() => {
+    const start = startOfMonth(addMonths(today(), -MONTHS_BACK));
+    const endMonth = addMonths(today(), MONTHS_FORWARD);
+    const end = new Date(endMonth.getFullYear(), endMonth.getMonth() + 1, 0);
+
+    const out: Date[] = [];
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      out.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return out;
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       const local = readLocalSettings();
-      if (local) {
-        if (!cancelled) {
-          setSettings(local);
-          setChecking(false);
-        }
-        return;
-      }
+      if (local && !cancelled) setSettings(local);
 
       try {
         await ensureSession();
-        const remote = await fetchSettings();
 
-        if (cancelled) return;
-
-        if (remote) {
-          // 기기를 바꾸거나 캐시를 지운 경우. 로컬 사본을 다시 채워준다.
+        if (!local) {
+          const remote = await fetchSettings();
+          if (cancelled) return;
+          if (!remote) {
+            router.replace("/setup");
+            return;
+          }
           writeLocalSettings(remote);
           setSettings(remote);
-          setChecking(false);
-        } else {
-          router.replace("/setup");
         }
+
+        const from = toKey(days[0]);
+        const to = toKey(days[days.length - 1]);
+        const rows = await fetchLogs(from, to);
+        if (!cancelled) setLogs(rows);
       } catch {
-        // 세션조차 못 만들면 설정부터 다시 하게 한다.
-        if (!cancelled) router.replace("/setup");
+        if (!cancelled && !local) router.replace("/setup");
+      } finally {
+        if (!cancelled) setChecking(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, days]);
 
-  if (checking || !settings) {
+  // 목록이 그려지면 오늘 줄로 스크롤한다. 사용자가 매일 여는 화면이라
+  // 열자마자 오늘이 눈앞에 있어야 한다.
+  useEffect(() => {
+    if (checking) return;
+    todayRef.current?.scrollIntoView({ block: "center" });
+  }, [checking]);
+
+  const logByDate = useMemo(() => {
+    const map = new Map<string, InjectionLog>();
+    for (const l of logs) map.set(l.date, l);
+    return map;
+  }, [logs]);
+
+  if (checking && !settings) {
     return (
       <AppFrame>
         <div className="flex flex-1 items-center justify-center">
@@ -72,69 +110,167 @@ export default function HomePage() {
 
   return (
     <AppFrame>
-      <header className="flex items-center justify-between px-6 pt-8 pb-1">
-        <div className="w-9" />
-        <h1 className="text-[1.4rem] font-bold tracking-tight text-ink">
-          주사 일지
-        </h1>
+      <header className="flex shrink-0 items-start justify-between px-6 pt-8 pb-4">
+        <div className="w-9 shrink-0" />
+        <div className="min-w-0 text-center">
+          <h1 className="text-[1.35rem] font-bold tracking-tight text-ink">
+            날짜 선택
+          </h1>
+          <p className="mt-1.5 text-[0.8rem] leading-relaxed text-ink-muted">
+            기록을 확인하거나 새로 주사를 투여할
+            <br />
+            날짜를 선택해주세요
+          </p>
+        </div>
         <Link
           href="/setup"
           aria-label="설정"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-all duration-200 hover:bg-canvas-deep hover:text-ink active:scale-90"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-all duration-200 hover:bg-canvas-deep hover:text-ink active:scale-90"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-            <g
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </g>
-          </svg>
+          <GearIcon />
         </Link>
       </header>
 
-      <div className="animate-rise flex-1 px-6 pt-6 pb-10">
-        <div className="rounded-[var(--radius-lg)] border border-line bg-surface p-5 shadow-[var(--shadow-sm)]">
-          <p className="text-[0.75rem] font-medium tracking-wide text-ink-muted">
-            내 설정
-          </p>
-          <p className="mt-2 text-[1.15rem] font-bold tracking-tight text-ink">
-            {settings.injectionName}
-          </p>
+      <div
+        ref={listRef}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4"
+      >
+        {days.map((date, i) => {
+          const key = toKey(date);
+          const log = logByDate.get(key);
+          const isToday = key === todayKey;
+          const isSelected = key === selected;
+          const monthChanged =
+            i === 0 || date.getMonth() !== days[i - 1].getMonth();
 
-          <dl className="mt-4 space-y-2.5 border-t border-line pt-4 text-[0.85rem]">
-            <div className="flex justify-between gap-4">
-              <dt className="text-ink-muted">투여 시각</dt>
-              <dd className="tabular font-medium text-ink-soft">
-                {formatTime(settings.scheduledHour, settings.scheduledMinute)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="shrink-0 text-ink-muted">투여 기간</dt>
-              <dd className="tabular text-right font-medium text-ink-soft">
-                {formatKorean(settings.startDate)}
-                <br />– {formatKorean(settings.endDate)}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-ink-muted">총 기간</dt>
-              <dd className="tabular font-medium text-ink-soft">
-                {daysBetween(settings.startDate, settings.endDate)}일
-              </dd>
-            </div>
-          </dl>
-        </div>
+          const inPeriod =
+            !!settings && key >= settings.startDate && key <= settings.endDate;
 
-        <p className="mt-6 px-1 text-center text-[0.8rem] leading-relaxed text-ink-muted">
-          기록 화면은 다음 단계에서 이어집니다.
-          <br />
-          설정을 바꾸려면 오른쪽 위 톱니바퀴를 눌러주세요.
-        </p>
+          return (
+            <div key={key}>
+              {monthChanged && (
+                <div className="sticky top-0 z-10 -mx-1 bg-canvas/95 px-1 py-2 backdrop-blur-sm">
+                  <span className="tabular text-[0.78rem] font-bold tracking-tight text-ink-soft">
+                    {date.getFullYear()}년 {date.getMonth() + 1}월
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="button"
+                ref={isToday ? todayRef : undefined}
+                onClick={() => setSelected(key)}
+                aria-pressed={isSelected}
+                className={[
+                  "mb-2 flex w-full items-center justify-between gap-3 rounded-[var(--radius)] border px-4 py-3.5 text-left transition-all duration-200 ease-[var(--ease-out)] active:scale-[0.99]",
+                  isSelected
+                    ? "border-accent bg-accent text-white shadow-[var(--shadow)]"
+                    : "border-line bg-surface hover:border-line-strong",
+                ].join(" ")}
+              >
+                <span className="min-w-0">
+                  <span
+                    className={[
+                      "tabular block text-[1rem] font-bold tracking-tight",
+                      isSelected ? "text-white" : "text-ink",
+                    ].join(" ")}
+                  >
+                    {date.getFullYear()}년 {date.getMonth() + 1}월{" "}
+                    {date.getDate()}일
+                  </span>
+                  <span
+                    className={[
+                      "mt-0.5 block text-[0.78rem]",
+                      isSelected ? "text-white/70" : "text-ink-muted",
+                    ].join(" ")}
+                  >
+                    {WEEKDAYS[date.getDay()]}
+                    {isToday && " · 오늘"}
+                  </span>
+                </span>
+
+                <StatusBadge
+                  log={log}
+                  isToday={isToday}
+                  isSelected={isSelected}
+                  isFuture={key > todayKey}
+                  inPeriod={inPeriod}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="sticky bottom-0 z-20 shrink-0 bg-gradient-to-t from-canvas via-canvas to-transparent px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          onClick={() => router.push(`/site/${selected}`)}
+          className="flex h-14 w-full items-center justify-center rounded-[var(--radius-lg)] bg-accent text-[1rem] font-bold text-white shadow-[var(--shadow)] transition-all duration-250 ease-[var(--ease-out)] hover:brightness-110 active:scale-[0.98]"
+        >
+          다음으로 이동
+        </button>
       </div>
     </AppFrame>
   );
+}
+
+function StatusBadge({
+  log,
+  isToday,
+  isSelected,
+  isFuture,
+  inPeriod,
+}: {
+  log: InjectionLog | undefined;
+  isToday: boolean;
+  isSelected: boolean;
+  isFuture: boolean;
+  inPeriod: boolean;
+}) {
+  const base =
+    "shrink-0 rounded-full px-2.5 py-1 text-[0.72rem] font-medium whitespace-nowrap";
+
+  if (log) {
+    return (
+      <span
+        className={[
+          base,
+          isSelected ? "bg-white/20 text-white" : "bg-accent-soft text-accent",
+        ].join(" ")}
+      >
+        주사 완료 · {SITE_SHORT[log.site]}
+      </span>
+    );
+  }
+
+  if (isToday) {
+    return (
+      <span
+        className={[
+          base,
+          isSelected
+            ? "bg-white/20 text-white"
+            : "bg-accent-end-soft text-accent-end",
+        ].join(" ")}
+      >
+        오늘
+      </span>
+    );
+  }
+
+  if (isFuture && inPeriod) {
+    return (
+      <span
+        className={[
+          base,
+          isSelected ? "bg-white/15 text-white/80" : "bg-canvas-deep text-ink-muted",
+        ].join(" ")}
+      >
+        주사 예정
+      </span>
+    );
+  }
+
+  return null;
 }
