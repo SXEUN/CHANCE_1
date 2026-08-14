@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { AppFrame } from "@/components/AppFrame";
@@ -11,7 +11,7 @@ import { daysBetween, formatKorean } from "@/lib/date";
 import type { InjectionName } from "@/lib/injections";
 import { ensureSession, fetchSettings, saveSettings } from "@/lib/settings/remote";
 import { readLocalSettings, writeLocalSettings } from "@/lib/settings/storage";
-import { toHour24, toMeridiem } from "@/lib/settings/types";
+import { toHour24, toMeridiem, type Settings } from "@/lib/settings/types";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -29,23 +29,38 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 사용자가 뭔가 건드린 뒤에는 늦게 도착한 서버 값이 입력을 덮어쓰면 안 된다.
+  const touched = useRef(false);
+
   // 이미 저장한 설정이 있으면 그 값으로 채운다(설정 다시 열기).
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      const local = readLocalSettings();
-      const existing = local ?? (await fetchSettings().catch(() => null));
+    function apply(s: Settings) {
+      const { meridiem, hour12 } = toMeridiem(s.scheduledHour);
+      setInjectionName(s.injectionName);
+      setTime({ meridiem, hour12, minute: s.scheduledMinute });
+      setStartDate(s.startDate);
+      setEndDate(s.endDate);
+    }
 
-      if (!cancelled && existing) {
-        const { meridiem, hour12 } = toMeridiem(existing.scheduledHour);
-        setInjectionName(existing.injectionName);
-        setTime({ meridiem, hour12, minute: existing.scheduledMinute });
-        setStartDate(existing.startDate);
-        setEndDate(existing.endDate);
-      }
-      if (!cancelled) setHydrated(true);
-    })();
+    const local = readLocalSettings();
+    if (local) apply(local);
+
+    // 폼을 먼저 띄운다. 여기서 네트워크를 기다리면 첫 화면이 그만큼 늦어지는데,
+    // 어차피 / 가 서버를 확인한 뒤에야 이리로 보내주므로 기다릴 이유가 없다.
+    setHydrated(true);
+
+    // 로컬 사본이 없는 경우에만(기기 변경 등) 서버를 뒤늦게 확인해 채워준다.
+    if (!local) {
+      fetchSettings()
+        .then((remote) => {
+          if (!cancelled && remote && !touched.current) apply(remote);
+        })
+        .catch(() => {
+          /* 없으면 그냥 빈 폼으로 시작한다 */
+        });
+    }
 
     return () => {
       cancelled = true;
@@ -99,11 +114,23 @@ export default function SetupPage() {
       ) : (
         <div className="flex-1 space-y-7 px-6 pt-6 pb-40">
           <Field label="주사 명칭" step={1}>
-            <InjectionSelect value={injectionName} onChange={setInjectionName} />
+            <InjectionSelect
+              value={injectionName}
+              onChange={(v) => {
+                touched.current = true;
+                setInjectionName(v);
+              }}
+            />
           </Field>
 
           <Field label="투여 시각" step={2}>
-            <TimeWheel value={time} onChange={setTime} />
+            <TimeWheel
+              value={time}
+              onChange={(v) => {
+                touched.current = true;
+                setTime(v);
+              }}
+            />
           </Field>
 
           <Field label="투여 기간" step={3}>
@@ -111,6 +138,7 @@ export default function SetupPage() {
               startDate={startDate}
               endDate={endDate}
               onChange={(next) => {
+                touched.current = true;
                 setStartDate(next.startDate);
                 setEndDate(next.endDate);
               }}
