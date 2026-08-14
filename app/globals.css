@@ -1,26 +1,231 @@
 @import "tailwindcss";
 
+/*
+  색은 채도를 낮춘 따뜻한 중성색 위에 두 개의 강조색만 올린다.
+  의료 앱이 흔히 쓰는 형광 파랑을 피하고, 종이에 인쇄한 것 같은 바탕에
+  깊은 남색(시작)과 테라코타(종료)를 얹어 차분하게 만든다.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #f7f5f2;
+  --canvas-deep: #efeae3;
+  --surface: #ffffff;
+
+  --ink: #1a1613;
+  --ink-soft: #574f47;
+  --ink-muted: #8b8177;
+  --line: #e6dfd6;
+  --line-strong: #d5cbbe;
+
+  /* 기간의 시작 */
+  --accent: #1e4d74;
+  --accent-soft: #eaf0f5;
+  --accent-ring: #1e4d7433;
+
+  /* 기간의 끝 */
+  --accent-end: #bd6a3c;
+  --accent-end-soft: #f8eee6;
+
+  --danger: #a3382f;
+
+  --radius-sm: 0.625rem;
+  --radius: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+
+  --shadow-sm: 0 1px 2px rgb(26 22 19 / 0.05);
+  --shadow: 0 2px 8px -2px rgb(26 22 19 / 0.08), 0 1px 3px rgb(26 22 19 / 0.04);
+  --shadow-lg: 0 12px 32px -8px rgb(26 22 19 / 0.14),
+    0 4px 12px -4px rgb(26 22 19 / 0.07);
+
+  /* 모든 전환이 같은 곡선을 쓰면 화면이 한 몸처럼 움직인다. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /*
+    기기에 이미 있는 한글 서체를 순서대로 고른다. 웹폰트를 받지 않으므로
+    첫 화면에서 글자가 뒤늦게 바뀌는 현상이 없다.
+    Pretendard 를 설치해 둔 사용자에게는 그게 먼저 잡힌다.
+  */
+  --font-stack: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic",
+    "맑은 고딕", system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-canvas-deep: var(--canvas-deep);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-end: var(--accent-end);
+  --color-accent-end-soft: var(--accent-end-soft);
+  --color-danger: var(--danger);
+
+  --radius-sm: var(--radius-sm);
+  --radius-DEFAULT: var(--radius);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+
+  --font-sans: var(--font-stack);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  /* iOS 에서 가로 스크롤이 생기면 화면 전체가 흔들린다. */
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-stack);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 주소창이 숨었다 나타날 때 배경이 끊겨 보이지 않게 한다. */
+  background-attachment: fixed;
+}
+
+/* 숫자가 세로로 정렬되어야 휠 피커와 달력이 흔들리지 않는다. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* 탭할 때 안드로이드 크롬이 씌우는 회색 하이라이트를 없앤다. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+/* 키보드 사용자에게만 포커스 링을 보여준다. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── 스크롤 휠 피커 ─────────────────────────────────────── */
+.wheel {
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.wheel::-webkit-scrollbar {
+  display: none;
+}
+.wheel-item {
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+
+/* ── 애니메이션 ─────────────────────────────────────────── */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slide-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.5s var(--ease-out) both;
+}
+.animate-fade {
+  animation: fade 0.35s var(--ease) both;
+}
+.animate-from-right {
+  animation: slide-from-right 0.28s var(--ease-out) both;
+}
+.animate-from-left {
+  animation: slide-from-left 0.28s var(--ease-out) both;
+}
+.animate-pop {
+  animation: pop 0.3s var(--ease-out) both;
+}
+.animate-drop {
+  animation: drop 0.22s var(--ease-out) both;
+  transform-origin: top center;
+}
+
+/*
+  움직임에 민감한 사용자를 위한 처리.
+  난임 치료 중에는 컨디션이 나쁜 날이 많아 이 배려가 실제로 필요하다.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
