@@ -113,7 +113,8 @@ export default function SetupPage() {
         <SetupSkeleton />
       ) : (
         <div className="flex-1 space-y-7 px-6 pt-6 pb-40">
-          <Field label="주사 명칭" step={1}>
+          {/* 드롭다운이 아래 두 섹션 위로 펼쳐져야 한다. */}
+          <Field label="주사 명칭" step={1} layer={20}>
             <InjectionSelect
               value={injectionName}
               onChange={(v) => {
@@ -174,16 +175,24 @@ export default function SetupPage() {
 function Field({
   label,
   step,
+  layer = 0,
   children,
 }: {
   label: string;
   step: number;
+  /**
+   * 겹침 순서. 기본은 DOM 순서대로 뒤 섹션이 위에 그려지는데,
+   * 드롭다운처럼 아래 섹션을 덮어야 하는 요소가 있으면 이 값을 올린다.
+   * animate-rise 가 섹션마다 쌓임 맥락을 만들기 때문에 자식의 z-index 만으로는
+   * 섹션 경계를 넘지 못한다.
+   */
+  layer?: number;
   children: React.ReactNode;
 }) {
   return (
     <section
-      className="animate-rise space-y-2.5"
-      style={{ animationDelay: `${step * 70}ms` }}
+      className="animate-rise relative space-y-2.5"
+      style={{ animationDelay: `${step * 70}ms`, zIndex: layer }}
     >
       <h2 className="px-0.5 text-[0.85rem] font-medium tracking-tight text-ink-soft">
         {label}
