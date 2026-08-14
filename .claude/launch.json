@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "chance1-dev",
+      "runtimeExecutable": "C:\\Users\\User\\Desktop\\CHANCE_1\\dev.cmd",
+      "runtimeArgs": [],
+      "port": 3002
+    }
+  ]
+}
