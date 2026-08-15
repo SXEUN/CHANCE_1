@@ -22,14 +22,13 @@ const SITES: {
   y: number;
   badgeX: number;
   badgeY: number;
-  enabled: boolean;
 }[] = [
   // 화면 왼쪽 = 사용자의 왼쪽
-  { site: "LEFT", x: 97, y: 170, badgeX: 97, badgeY: 146, enabled: true },
+  { site: "LEFT", x: 97, y: 170, badgeX: 97, badgeY: 146 },
   // 화면 오른쪽 = 사용자의 오른쪽
-  { site: "RIGHT", x: 163, y: 170, badgeX: 163, badgeY: 146, enabled: true },
-  // 하복부는 다음 단계에서 연다.
-  { site: "LOWER", x: 130, y: 199, badgeX: 130, badgeY: 221, enabled: false },
+  { site: "RIGHT", x: 163, y: 170, badgeX: 163, badgeY: 146 },
+  // 배꼽 아래. 다리가 갈라지기 전이라 배지까지 몸통 위에 올라간다.
+  { site: "LOWER", x: 130, y: 195, badgeX: 130, badgeY: 217 },
 ];
 
 const NAVEL = { x: 130, y: 166 };
@@ -122,9 +121,9 @@ export function BodyMap({ value, recommended, onChange }: Props) {
         <circle cx={NAVEL.x} cy={NAVEL.y} r="1.6" fill="var(--ink)" opacity="0.35" />
 
         {/* 주사 부위 */}
-        {SITES.map(({ site, x, y, badgeX, badgeY, enabled }) => {
+        {SITES.map(({ site, x, y, badgeX, badgeY }) => {
           const selected = value === site;
-          const isRecommended = recommended === site && !selected && enabled;
+          const isRecommended = recommended === site && !selected;
 
           return (
             <g key={site}>
@@ -142,24 +141,18 @@ export function BodyMap({ value, recommended, onChange }: Props) {
               )}
 
               <g
-                role={enabled ? "button" : undefined}
-                tabIndex={enabled ? 0 : undefined}
-                aria-label={
-                  enabled
-                    ? `${SITE_LABEL[site]}${isRecommended ? " (오늘의 추천)" : ""}`
-                    : `${SITE_LABEL[site]} (준비 중)`
-                }
-                aria-pressed={enabled ? selected : undefined}
-                aria-disabled={!enabled}
-                onClick={() => enabled && onChange(site)}
+                role="button"
+                tabIndex={0}
+                aria-label={`${SITE_LABEL[site]}${isRecommended ? " (오늘의 추천)" : ""}`}
+                aria-pressed={selected}
+                onClick={() => onChange(site)}
                 onKeyDown={(e) => {
-                  if (!enabled) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onChange(site);
                   }
                 }}
-                style={{ cursor: enabled ? "pointer" : "not-allowed" }}
+                style={{ cursor: "pointer" }}
               >
                 {/* 손가락이 닿는 영역. 보이는 원보다 넉넉해야 누르기 쉽다. */}
                 <circle cx={x} cy={y} r="24" fill="transparent" />
@@ -169,16 +162,8 @@ export function BodyMap({ value, recommended, onChange }: Props) {
                   cy={y}
                   r="11"
                   fill={selected ? "var(--accent)" : "var(--surface)"}
-                  stroke={
-                    enabled
-                      ? selected
-                        ? "var(--accent)"
-                        : "var(--accent)"
-                      : "var(--line-strong)"
-                  }
+                  stroke="var(--accent)"
                   strokeWidth="1.8"
-                  strokeDasharray={enabled ? undefined : "3 3"}
-                  opacity={enabled ? 1 : 0.55}
                   style={{
                     transition: "fill 220ms var(--ease), r 220ms var(--ease-out)",
                   }}
@@ -197,20 +182,14 @@ export function BodyMap({ value, recommended, onChange }: Props) {
                 )}
 
                 {/* L / R / U 배지 */}
-                <g opacity={enabled ? 1 : 0.5}>
+                <g>
                   <rect
                     x={badgeX - 10}
                     y={badgeY - 9}
                     width="20"
                     height="18"
                     rx="5"
-                    fill={
-                      selected
-                        ? "var(--accent)"
-                        : enabled
-                          ? "var(--accent-soft)"
-                          : "var(--canvas-deep)"
-                    }
+                    fill={selected ? "var(--accent)" : "var(--accent-soft)"}
                     style={{ transition: "fill 220ms var(--ease)" }}
                   />
                   <text

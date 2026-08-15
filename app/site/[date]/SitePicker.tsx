@@ -159,7 +159,7 @@ export function SitePicker({ date }: { date: string }) {
         <p className="mt-3 px-1 text-center text-[0.72rem] leading-relaxed text-ink-muted">
           같은 자리에 반복하면 멍과 경결이 생기기 쉬워
           <br />
-          매일 좌우를 번갈아 추천합니다. 하복부는 준비 중입니다.
+          우측 → 좌측 → 하복부 순으로 매일 돌아가며 추천합니다.
         </p>
       </div>
 

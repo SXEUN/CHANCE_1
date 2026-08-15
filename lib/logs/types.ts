@@ -25,11 +25,14 @@ export const SITE_SHORT: Record<InjectionSite, string> = {
   LOWER: "U",
 };
 
+/** 추천이 도는 순서: 우측 → 좌측 → 하복부 → 다시 우측. */
+export const ROTATION: InjectionSite[] = ["RIGHT", "LEFT", "LOWER"];
+
 /**
  * 오늘 추천할 부위를 고른다.
  *
- * 같은 자리에 반복해서 놓으면 멍과 경결(硬結)이 생기므로 매일 좌우를
- * 번갈아 쓴다. 직전 기록의 반대쪽을 추천하고, 기록이 없으면 오른쪽부터.
+ * 같은 자리에 반복해서 놓으면 멍과 경결(硬結)이 생기므로 자리를 돌려 쓴다.
+ * 직전 기록의 다음 차례를 추천하고, 기록이 없으면 우측부터 시작한다.
  *
  * 기준이 되는 "직전 기록"은 선택한 날짜보다 앞선 것 중 가장 최근 것이다.
  * 사용자가 지난 날짜를 뒤늦게 채워 넣어도 그 날 시점의 순서가 유지된다.
@@ -37,11 +40,14 @@ export const SITE_SHORT: Record<InjectionSite, string> = {
 export function recommendSite(
   logs: InjectionLog[],
   forDate: string,
-): Exclude<InjectionSite, "LOWER"> {
+): InjectionSite {
   const previous = logs
-    .filter((l) => l.date < forDate && l.site !== "LOWER")
+    .filter((l) => l.date < forDate)
     .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
 
-  if (!previous) return "RIGHT";
-  return previous.site === "RIGHT" ? "LEFT" : "RIGHT";
+  if (!previous) return ROTATION[0];
+
+  // 알 수 없는 값이 저장돼 있으면 indexOf 가 -1 이라 자연스럽게 첫 칸으로 돌아간다.
+  const at = ROTATION.indexOf(previous.site);
+  return ROTATION[(at + 1) % ROTATION.length];
 }
